@@ -1,0 +1,53 @@
+
+const API_URL = "http://10.96.131.17:5000";
+
+async function request(endpoint, method = "GET", body = null, token = null) {
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    method,
+    headers,
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Something went wrong");
+  }
+
+  return data;
+}
+
+export const registerUser = (name, email, password) =>
+  request("/api/auth/register", "POST", { name, email, password });
+
+export const loginUser = (email, password) =>
+  request("/api/auth/login", "POST", { email, password });
+
+export const saveMood = (mood, note, token) =>
+  request("/api/moods", "POST", { mood, note }, token);
+
+export const getMoodHistory = (token) =>
+  request("/api/moods", "GET", null, token);
+
+// Lumi chat
+export const sendChatMessage = (message, conversationId, token) =>
+  request(
+    "/api/chat",
+    "POST",
+    { message, conversationId },
+    token
+  );
+
+export const getChatHistory = (token) =>
+  request("/api/chat/history", "GET", null, token);
+
+export const getConversation = (id, token) =>
+  request(`/api/chat/${id}`, "GET", null, token);
