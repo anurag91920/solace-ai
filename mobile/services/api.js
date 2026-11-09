@@ -1,5 +1,5 @@
 
-const API_URL = "http://10.96.131.17:5000";
+const API_URL = "https://solace-ai-47sj.onrender.com";
 
 async function request(endpoint, method = "GET", body = null, token = null) {
   const headers = {
@@ -51,3 +51,11 @@ export const getChatHistory = (token) =>
 
 export const getConversation = (id, token) =>
   request(`/api/chat/${id}`, "GET", null, token);
+
+export const getProgress = (token, month, year) =>
+  request(
+    `/api/progress?month=${month}&year=${year}`,
+    "GET",
+    null,
+    token
+  );
