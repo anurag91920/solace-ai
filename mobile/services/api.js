@@ -59,3 +59,19 @@ export const getProgress = (token, month, year) =>
     null,
     token
   );
+
+  export const renameConversation = (id, title, token) =>
+  request(
+    `/api/chat/${id}`,
+    "PATCH",
+    { title },
+    token
+  );
+
+export const deleteConversation = (id, token) =>
+  request(
+    `/api/chat/${id}`,
+    "DELETE",
+    null,
+    token
+  );

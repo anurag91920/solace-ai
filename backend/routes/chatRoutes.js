@@ -97,6 +97,72 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+// Rename a conversation
+router.patch("/:id", protect, async (req, res) => {
+  try {
+    const title = String(req.body.title || "").trim();
+
+    if (!title || title.length > 100) {
+      return res.status(400).json({
+        message: "Title must be between 1 and 100 characters.",
+      });
+    }
+
+    const conversation = await Conversation.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.user.id,
+      },
+      { $set: { title } },
+      { new: true, runValidators: true }
+    );
+
+    if (!conversation) {
+      return res.status(404).json({
+        message: "Conversation not found.",
+      });
+    }
+
+    res.json({
+      success: true,
+      conversation,
+    });
+  } catch (error) {
+    console.error("Rename chat error:", error);
+
+    res.status(500).json({
+      message: "Unable to rename conversation.",
+    });
+  }
+});
+
+// Delete a conversation
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const conversation = await Conversation.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user.id,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({
+        message: "Conversation not found.",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Conversation deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete chat error:", error);
+
+    res.status(500).json({
+      message: "Unable to delete conversation.",
+    });
+  }
+});
+
 // Send a message and save the conversation
 router.post("/", protect, async (req, res) => {
   try {
