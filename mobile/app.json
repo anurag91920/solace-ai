@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Nova",
@@ -10,13 +11,12 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.anurag919200steam.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "package": "com.anurag919200steam.mobile"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +31,7 @@
         }
       },
       "eas": {
-        "projectId": "724e2e05-f9f5-47f1-96bd-9acb2d26f6d4"
+        "projectId": "1fb9e183-80dc-4934-b87c-8059b0bf02ba"
       }
     }
   }
