@@ -19,11 +19,13 @@ import * as Notifications from "expo-notifications";
 import {
   registerUser,
   loginUser,
+  getCurrentUser,
   saveMood,
   getMoodHistory,
 } from "./services/api";
 import ChatScreen from "./app/ChatScreen";
 import ProgressScreen from "./app/ProgressScreen";
+import * as SecureStore from "expo-secure-store";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -134,6 +136,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isRestoringAuth, setIsRestoringAuth] = useState(true);
 
   const [selectedMood, setSelectedMood] = useState("");
   const [moodNote, setMoodNote] = useState("");
@@ -206,30 +209,99 @@ export default function App() {
     };
   }, [breathingActive]);
 
-  async function restoreLocalState() {
-    try {
-      const [savedUser, savedJournal, savedReminder] =
-        await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.user),
-          AsyncStorage.getItem(STORAGE_KEYS.journal),
-          AsyncStorage.getItem(STORAGE_KEYS.reminder),
-        ]);
+ 
+async function restoreLocalState() {
+  try {
+    const [savedUser, savedJournal, savedReminder, savedToken] =
+      await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.user),
+        AsyncStorage.getItem(STORAGE_KEYS.journal),
+        AsyncStorage.getItem(STORAGE_KEYS.reminder),
+        SecureStore.getItemAsync("nova_auth_token_v1"),
+      ]);
 
-      if (savedJournal) {
-        setJournalEntries(JSON.parse(savedJournal));
+    if (savedJournal) {
+      try {
+        const parsedJournal = JSON.parse(savedJournal);
+        setJournalEntries(
+          Array.isArray(parsedJournal) ? parsedJournal : []
+        );
+      } catch {
+        setJournalEntries([]);
       }
-
-      if (savedReminder === "true") {
-        setReminderEnabled(true);
-      }
-
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
-    } catch (error) {
-      console.log("Local restore error:", error.message);
     }
+
+    if (savedReminder === "true") {
+      setReminderEnabled(true);
+    }
+
+    if (!savedToken) {
+      setUser(null);
+      setToken(null);
+      setScreen("auth");
+      await AsyncStorage.removeItem(STORAGE_KEYS.user);
+      return;
+    }
+
+    try {
+      // Verify saved token with backend
+      const result = await getCurrentUser(savedToken);
+      const verifiedUser = result.user || result.data?.user;
+
+      if (!verifiedUser) {
+        throw new Error("User details not received");
+      }
+
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.user,
+        JSON.stringify(verifiedUser)
+      );
+
+      setUser(verifiedUser);
+      setToken(savedToken);
+      setScreen("main");
+      setSelectedTab("Home");
+    } catch (error) {
+      if (error.status === 401) {
+        // Token expired or invalid
+        await SecureStore.deleteItemAsync("nova_auth_token_v1");
+        await AsyncStorage.removeItem(STORAGE_KEYS.user);
+
+        setUser(null);
+        setToken(null);
+        setScreen("auth");
+      } else {
+        // Network/server error: preserve the saved session
+        let cachedUser = null;
+
+        try {
+          cachedUser = savedUser ? JSON.parse(savedUser) : null;
+        } catch {
+          cachedUser = null;
+        }
+
+        if (cachedUser) {
+          setUser(cachedUser);
+          setToken(savedToken);
+          setScreen("main");
+          setSelectedTab("Home");
+        } else {
+          setUser(null);
+          setToken(null);
+          setScreen("auth");
+        }
+
+        console.log("Session verification unavailable:", error.message);
+      }
+    }
+  } catch (error) {
+    console.log("Local restore error:", error.message);
+    setScreen("auth");
+  } finally {
+    setIsRestoringAuth(false);
   }
+}
+
 
   async function loadMoodHistory() {
     try {
@@ -298,8 +370,13 @@ export default function App() {
         );
       }
 
-      setToken(receivedToken);
-      setUser(receivedUser);
+      await SecureStore.setItemAsync(
+  "nova_auth_token_v1",
+  receivedToken
+);
+
+setToken(receivedToken);
+setUser(receivedUser);
 
       await AsyncStorage.setItem(
         STORAGE_KEYS.user,
@@ -519,14 +596,26 @@ export default function App() {
     setBreathingTick(0);
   }
 
-  async function handleLogout() {
-    setToken(null);
-    setUser(null);
-    setScreen("auth");
-    setSelectedTab("Home");
+ 
+async function handleLogout() {
+  setToken(null);
+  setUser(null);
+  setMoodHistory([]);
+  setPassword("");
+  setScreen("auth");
+  setSelectedTab("Home");
 
+  try {
+    await SecureStore.deleteItemAsync("nova_auth_token_v1");
     await AsyncStorage.removeItem(STORAGE_KEYS.user);
+  } catch (error) {
+    console.log("Logout storage error:", error.message);
+    Alert.alert(
+      "Logout warning",
+      "Your session could not be fully cleared from this device. Please try again."
+    );
   }
+}
 
   const affirmation =
     AFFIRMATIONS[
@@ -1295,9 +1384,30 @@ export default function App() {
       </ScrollView>
     );
   }
-    if (screen === "auth" || !token) {
-    return renderAuth();
-  }
+    
+if (isRestoringAuth) {
+  return (
+    <SafeAreaView
+      style={[
+        styles.safe,
+        {
+          justifyContent: "center",
+          alignItems: "center",
+        },
+      ]}
+    >
+      <ActivityIndicator size="large" color={COLORS.purple} />
+      <Text style={{ marginTop: 12, color: COLORS.muted }}>
+        Loading Nova...
+      </Text>
+    </SafeAreaView>
+  );
+}
+
+if (screen === "auth" || !token) {
+  return renderAuth();
+}
+
 
   if (screen === "chat") {
     return (

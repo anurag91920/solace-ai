@@ -69,6 +69,35 @@ router.post("/register", async (req, res) => {
   }
 });
 
+
+const protect = require("../middleware/authMiddleware");
+
+// Verify saved login token
+router.get("/me", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Unable to verify session",
+    });
+  }
+});
+
+
 // Login
 router.post("/login", async (req, res) => {
   try {

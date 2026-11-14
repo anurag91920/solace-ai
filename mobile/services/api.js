@@ -1,6 +1,7 @@
 
 const API_URL = "https://solace-ai-47sj.onrender.com";
 
+
 async function request(endpoint, method = "GET", body = null, token = null) {
   const headers = {
     "Content-Type": "application/json",
@@ -16,10 +17,19 @@ async function request(endpoint, method = "GET", body = null, token = null) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
-  const data = await response.json();
+  const text = await response.text();
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { message: "Invalid server response" };
+  }
 
   if (!response.ok) {
-    throw new Error(data.message || "Something went wrong");
+    const error = new Error(data.message || "Something went wrong");
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -30,6 +40,12 @@ export const registerUser = (name, email, password) =>
 
 export const loginUser = (email, password) =>
   request("/api/auth/login", "POST", { email, password });
+
+
+// Verify saved login token
+export const getCurrentUser = (token) =>
+  request("/api/auth/me", "GET", null, token);
+
 
 export const saveMood = (mood, note, token) =>
   request("/api/moods", "POST", { mood, note }, token);
